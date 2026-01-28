@@ -55,11 +55,11 @@ fn main() {
 
     let convert_pb = ProgressBar::new(png_files.len() as u64);
     convert_pb.set_style(
-        ProgressStyle::with_template("[{bar:40}] {pos}/{len} {msg}")
+        ProgressStyle::with_template("{msg:>7} {bar:40.#f92672/237} {pos}/{len} {eta_precise:.cyan}")
             .unwrap()
-            .progress_chars("=> "),
+            .progress_chars("━ ━"),
     );
-    convert_pb.set_message("Converting to jpeg...");
+    convert_pb.set_message("convert");
 
     let pb = Arc::new(convert_pb);
     let (tx, rx) = crossbeam_channel::unbounded::<PathBuf>();
@@ -120,5 +120,12 @@ fn main() {
         let _ = handle.join();
     }
 
+    pb.set_style(
+        ProgressStyle::with_template(
+            "{msg:>7} {bar:40.#729c1f/237} {pos}/{len} {elapsed_precise:.yellow}",
+        )
+        .unwrap()
+        .progress_chars("━ ━"),
+    );
     pb.finish_with_message("Done");
 }
