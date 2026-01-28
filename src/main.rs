@@ -2,6 +2,8 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::thread;
 use walkdir::WalkDir;
 
 fn is_png(path: &Path) -> bool {
@@ -59,35 +61,64 @@ fn main() {
     );
     convert_pb.set_message("Converting to jpeg...");
 
-    for input_path in png_files {
-        let rel = match input_path.strip_prefix(&input_root) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
-        let mut output_path = output_root.join(rel);
-        output_path.set_extension("jpg");
+    let pb = Arc::new(convert_pb);
+    let (tx, rx) = crossbeam_channel::unbounded::<PathBuf>();
+    let worker_count = num_cpus::get().max(1);
+    let mut handles = Vec::with_capacity(worker_count);
 
-        if let Some(parent) = output_path.parent() {
-            if let Err(err) = fs::create_dir_all(parent) {
-                convert_pb.set_message(format!("Failed creating dir: {}", err));
-                convert_pb.inc(1);
-                continue;
-            }
-        }
+    for _ in 0..worker_count {
+        let rx = rx.clone();
+        let pb = Arc::clone(&pb);
+        let input_root = input_root.clone();
+        let output_root = output_root.clone();
+        handles.push(thread::spawn(move || {
+            while let Ok(input_path) = rx.recv() {
+                let rel = match input_path.strip_prefix(&input_root) {
+                    Ok(v) => v,
+                    Err(_) => {
+                        pb.inc(1);
+                        continue;
+                    }
+                };
+                let mut output_path = output_root.join(rel);
+                output_path.set_extension("jpg");
 
-        match image::open(&input_path) {
-            Ok(img) => {
-                if let Err(err) = img.save_with_format(&output_path, image::ImageFormat::Jpeg) {
-                    convert_pb.set_message(format!("Failed saving: {}", err));
+                if let Some(parent) = output_path.parent() {
+                    if let Err(err) = fs::create_dir_all(parent) {
+                        pb.set_message(format!("Failed creating dir: {}", err));
+                        pb.inc(1);
+                        continue;
+                    }
                 }
-            }
-            Err(err) => {
-                convert_pb.set_message(format!("Failed reading: {}", err));
-            }
-        }
 
-        convert_pb.inc(1);
+                match image::open(&input_path) {
+                    Ok(img) => {
+                        if let Err(err) =
+                            img.save_with_format(&output_path, image::ImageFormat::Jpeg)
+                        {
+                            pb.set_message(format!("Failed saving: {}", err));
+                        }
+                    }
+                    Err(err) => {
+                        pb.set_message(format!("Failed reading: {}", err));
+                    }
+                }
+
+                pb.inc(1);
+            }
+        }));
     }
 
-    convert_pb.finish_with_message("Done");
+    for input_path in png_files {
+        if tx.send(input_path).is_err() {
+            break;
+        }
+    }
+    drop(tx);
+
+    for handle in handles {
+        let _ = handle.join();
+    }
+
+    pb.finish_with_message("Done");
 }
