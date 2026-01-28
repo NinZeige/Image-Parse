@@ -34,11 +34,6 @@ fn main() {
     }
 
     let list_pb = ProgressBar::new_spinner();
-    list_pb.set_style(
-        ProgressStyle::with_template("{spinner} {msg}")
-            .unwrap()
-            .tick_strings(&["-", "\\", "|", "/"]),
-    );
     list_pb.set_message("Listing png files...");
     list_pb.enable_steady_tick(std::time::Duration::from_millis(80));
 
@@ -58,9 +53,9 @@ fn main() {
 
     let convert_pb = ProgressBar::new(png_files.len() as u64);
     convert_pb.set_style(
-        ProgressStyle::with_template("{bar:40.cyan/blue} {pos}/{len} {msg}")
+        ProgressStyle::with_template("[{bar:40}] {pos}/{len} {msg}")
             .unwrap()
-            .progress_chars("=>-"),
+            .progress_chars("=> "),
     );
     convert_pb.set_message("Converting to jpeg...");
 
