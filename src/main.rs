@@ -2,12 +2,13 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::env;
 use std::fs;
 use std::fs::File;
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 use walkdir::WalkDir;
 
-const JPG_QUALITY: u8 = 95;
+const JPG_QUALITY: u8 = 80;
 
 fn is_image(path: &Path) -> bool {
     path.extension()
@@ -22,9 +23,9 @@ fn is_image(path: &Path) -> bool {
 }
 
 fn write_image(img: image::DynamicImage, output_root: &Path) -> anyhow::Result<()> {
-    let writer = File::open(output_root)?;
-    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(writer, JPG_QUALITY);
-    encoder.encode_image(&img)?;
+    let writer = BufWriter::new(File::create(output_root)?);
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(writer, JPG_QUALITY);
+    img.write_with_encoder(encoder)?;
     Ok(())
 }
 
