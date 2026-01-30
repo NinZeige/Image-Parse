@@ -41,22 +41,37 @@ fn main() {
     }
 
     let list_pb = ProgressBar::new_spinner();
-    list_pb.set_message("Listing png files...");
+    list_pb.set_message("Listing image files...");
     list_pb.enable_steady_tick(std::time::Duration::from_millis(80));
 
     let mut png_files = Vec::new();
+    let mut png_count = 0usize;
+    let mut jpg_count = 0usize;
+    let mut jpeg_count = 0usize;
     for entry in WalkDir::new(&input_root).into_iter().filter_map(Result::ok) {
         if entry.file_type().is_file() {
             let path = entry.path();
             if is_image(path) {
                 png_files.push(path.to_path_buf());
+                if let Some(ext) = path.extension().and_then(|ext| ext.to_str()) {
+                    match ext.to_ascii_lowercase().as_str() {
+                        "png" => png_count += 1,
+                        "jpg" => jpg_count += 1,
+                        "jpeg" => jpeg_count += 1,
+                        _ => {}
+                    }
+                }
                 if png_files.len() % 100 == 0 {
-                    list_pb.set_message(format!("Listing png files... {}", png_files.len()));
+                    list_pb.set_message(format!("Listing image files... {}", png_files.len()));
                 }
             }
         }
     }
-    list_pb.finish_with_message(format!("Found {} png files", png_files.len()));
+    list_pb.finish_with_message(format!(
+        "Found {} PNG, {} JPG/JPEG",
+        png_count,
+        jpg_count + jpeg_count
+    ));
 
     let convert_pb = ProgressBar::new(png_files.len() as u64);
     convert_pb.set_style(
