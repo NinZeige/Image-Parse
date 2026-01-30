@@ -6,11 +6,16 @@ use std::sync::Arc;
 use std::thread;
 use walkdir::WalkDir;
 
-fn is_png(path: &Path) -> bool {
+fn is_image(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
-        .map(|ext| ext.eq_ignore_ascii_case("png"))
-        .unwrap_or(false)
+        .filter(|ext| {
+            ["jpg", "png", "jpeg"]
+                .map(|right| right.eq_ignore_ascii_case(ext))
+                .iter()
+                .any(|&x| x)
+        })
+        .is_some()
 }
 
 fn main() {
@@ -43,7 +48,7 @@ fn main() {
     for entry in WalkDir::new(&input_root).into_iter().filter_map(Result::ok) {
         if entry.file_type().is_file() {
             let path = entry.path();
-            if is_png(path) {
+            if is_image(path) {
                 png_files.push(path.to_path_buf());
                 if png_files.len() % 100 == 0 {
                     list_pb.set_message(format!("Listing png files... {}", png_files.len()));
@@ -55,9 +60,11 @@ fn main() {
 
     let convert_pb = ProgressBar::new(png_files.len() as u64);
     convert_pb.set_style(
-        ProgressStyle::with_template("{msg:>7} {bar:40.#f92672/237} {pos}/{len} {eta_precise:.cyan}")
-            .unwrap()
-            .progress_chars("━ ━"),
+        ProgressStyle::with_template(
+            "{msg:>7} {bar:40.#f92672/237} {pos}/{len} {eta_precise:.cyan}",
+        )
+        .unwrap()
+        .progress_chars("━ ━"),
     );
     convert_pb.set_message("convert");
 
@@ -128,4 +135,17 @@ fn main() {
         .progress_chars("━ ━"),
     );
     pb.finish_with_message("Done");
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_is_png() {
+        assert!(is_image(Path::new("test.png")));
+        assert!(is_image(Path::new("test.JPG")));
+        assert!(is_image(Path::new("test.JPEG")));
+        assert!(!is_image(Path::new("test.txt")));
+    }
 }
