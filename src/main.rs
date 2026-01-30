@@ -1,10 +1,13 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use std::env;
 use std::fs;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 use walkdir::WalkDir;
+
+const JPG_QUALITY: u8 = 95;
 
 fn is_image(path: &Path) -> bool {
     path.extension()
@@ -16,6 +19,13 @@ fn is_image(path: &Path) -> bool {
                 .any(|&x| x)
         })
         .is_some()
+}
+
+fn write_image(img: image::DynamicImage, output_root: &Path) -> anyhow::Result<()> {
+    let writer = File::open(output_root)?;
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(writer, JPG_QUALITY);
+    encoder.encode_image(&img)?;
+    Ok(())
 }
 
 fn main() {
@@ -115,9 +125,7 @@ fn main() {
 
                 match image::open(&input_path) {
                     Ok(img) => {
-                        if let Err(err) =
-                            img.save_with_format(&output_path, image::ImageFormat::Jpeg)
-                        {
+                        if let Err(err) = write_image(img, output_path.as_path()) {
                             pb.set_message(format!("Failed saving: {}", err));
                         }
                     }

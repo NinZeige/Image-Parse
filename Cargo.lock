@@ -412,6 +412,7 @@ dependencies = [
 name = "image-parse"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "crossbeam-channel",
  "image",
  "indicatif",
